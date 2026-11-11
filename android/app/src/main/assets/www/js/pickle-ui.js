@@ -522,7 +522,7 @@
         (f.sog != null ? ' · ' + U.num(f.sog, 1) + '노트' : '') + (f.timeAssumed ? ' · 시각 추정' : '') + '</small></div>' +
         '<button class="mbtn tiny" data-delfix="' + f.t + '">삭제</button></div>';
     }).join('') || '<div class="modal-hint">기록된 실측 위치가 없어요.</div>';
-    var originAuto = '자동 (' + (vw.originText || '미확인') + ({ track: ', 항적 기준', vf: ', VesselFinder 기록' }[vw.originInfo && vw.originInfo.kind] || '') + ')';
+    var originAuto = '자동 (' + (vw.originText || '미확인') + ({ track: ', 항적 기준', vf: ', VesselFinder 기록', hint: ', 이관값·갱신 전' }[vw.originInfo && vw.originInfo.kind] || '') + ')';
     var destAuto = '자동 (AIS 목적지: ' + ((v.voyage && v.voyage.destText) || '미확인') + ')';
 
     $('infoCard').innerHTML =
