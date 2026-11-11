@@ -1,0 +1,63 @@
+# main 에 올라올 때마다 (또는 수동 실행):
+#   ① 페이블 저장소의 최신 엔진을 가져와 엔진 회귀 테스트 실행
+#   ② 엔진 파일을 이 앱에 덮어쓰기 → ③ APK 빌드 → ④ 릴리스에 첨부
+# 받는 곳: https://github.com/jskimlam/pickle-fable-tracking/releases/latest
+name: build-apk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 페이블 엔진 저장소 가져오기
+        uses: actions/checkout@v4
+        with:
+          repository: jskimlam/fable-ship-tracking
+          path: fable
+
+      - name: 엔진 회귀 테스트 (페이블 저장소 기준)
+        run: node --test fable/tests/core.test.cjs
+
+      - name: 최신 엔진을 이 앱에 덮어쓰기
+        run: tools/sync-engine.sh fable
+
+      - name: 화면 연결 점검 (엔진과 피클 화면이 함께 로드되는지)
+        run: node --test tests/ui-smoke.test.cjs
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: APK 빌드
+        run: gradle -p android assembleRelease -PverCode=${{ github.run_number }} --no-daemon
+
+      - name: 파일명 정리
+        run: cp android/app/build/outputs/apk/release/app-release.apk pickle-fable-tracking.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pickle-fable-tracking-apk
+          path: pickle-fable-tracking.apk
+
+      - name: 릴리스 등록
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ENGINE=$(git -C fable rev-parse --short HEAD)
+          gh release create "v1.0.${{ github.run_number }}" pickle-fable-tracking.apk \
+            --title "피클마린 F v1.0.${{ github.run_number }}" \
+            --notes "커밋 ${{ github.sha }} · 페이블 엔진 ${ENGINE} 로 자동 빌드한 APK 입니다. 기존 설치본 위에 그대로 덮어 설치됩니다."
