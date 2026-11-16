@@ -619,7 +619,8 @@
       '<div class="modal-field"><span class="modal-label">소스별 조회 결과</span><div class="modal-list">' + srcRows + '</div></div>' +
       '<div class="modal-btns">' +
       (v.imo || v.mmsi ? '<button class="mbtn" data-act="vf">VesselFinder 원문</button>' : '') +
-      (vw.dest && vw.dest.pilot === 'yspilot' ? '<button class="mbtn" data-act="pilot">도선예보 원문</button>' : '') + '</div>' +
+      (vw.dest && vw.dest.pilot === 'yspilot' ? '<button class="mbtn" data-act="pilot">도선예보 원문</button>' : '') +
+      '<button class="mbtn" data-act="wlogin">Wingo 로그인</button></div>' +
       '<div class="modal-btns"><button class="mbtn danger" data-act="end">🗑️ 관제 종료</button><button class="mbtn primary" data-act="save">저장</button></div>' +
       '</div>';
     $('infoModal').classList.add('active');
@@ -647,6 +648,7 @@
     var act = t.dataset.act;
     if (act === 'close') { closeInfo(); return; }
     if (act === 'vf') { B.openBrowser(P.vfDetailUrl(v), v.name + ' · VesselFinder'); return; }
+    if (act === 'wlogin') { B.openBrowser(P.WINGO + '/login', 'Wingo Marine 로그인'); return; }
     if (act === 'pilot') { B.openBrowser(P.YSPILOT_URL, '여수항도선사회 도선예보'); return; }
     if (act === 'manual') {
       var lat = parseFloat($('mLat').value), lon = parseFloat($('mLon').value);
