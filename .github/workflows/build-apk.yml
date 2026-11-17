@@ -33,6 +33,19 @@ jobs:
       - name: 화면 연결 점검 (엔진과 피클 화면이 함께 로드되는지)
         run: node --test tests/ui-smoke.test.cjs
 
+      - name: PC에서 볼 데모 화면을 gh-pages 브랜치에 게시
+        run: |
+          rm -rf /tmp/site && mkdir /tmp/site
+          cp -r android/app/src/main/assets/www/. /tmp/site/
+          touch /tmp/site/.nojekyll
+          cd /tmp/site
+          git init -q -b gh-pages
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add -A
+          git commit -q -m "데모 화면 게시 (${{ github.sha }})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
