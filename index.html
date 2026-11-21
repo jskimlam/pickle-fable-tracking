@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>피클마린트래킹 F (직접 조회)</title>
+  <meta name="theme-color" content="#0b0e14" />
+  <link rel="icon" type="image/png" href="icons/favicon.png" />
+  <!-- 지도 라이브러리 Leaflet 은 앱 안에 내장 (CDN·API 키 없음) -->
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+
+  <!-- ===== 피클마린트래킹 원본 스타일 (변경 없이 그대로) ===== -->
+  <style>
+    :root {
+      --bg-page: #0b0e14;
+      --bg-card: #141824;
+      --bg-card-sub: #1a2030;
+      --border-line: #222b40;
+      --text-main: #f1f5f9;
+      --text-sub: #94a3b8;
+      --text-mute: #64748b;
+      --accent-cyan: #06b6d4;
+      --accent-blue: #38bdf8;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-lilac: #c084fc;
+      --accent-red: #ef4444;
+      --bubble-bg: #1e2638;
+      --bubble-border: #2d3852;
+      --radius-card: 16px;
+      --radius-pill: 999px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body, html {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-page);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+      width: 100%;
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 12px 28px 12px;
+    }
+
+    /* 상단 헤더 바 */
+    .top-header {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: rgba(11, 14, 20, 0.95);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-line);
+      padding: 10px 4px;
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-logo-img {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      box-shadow: 0 2px 10px rgba(6, 182, 212, 0.45);
+      flex-shrink: 0;
+      object-fit: cover;
+    }
+    .brand-icon { font-size: 22px; }
+    .brand-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .live-chip {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--accent-green);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 1; }
+      50% { transform: scale(1.4); opacity: 0.5; }
+      100% { transform: scale(0.8); opacity: 1; }
+    }
+    .btn-refresh {
+      background: var(--bg-card);
+      border: 1px solid var(--border-line);
+      color: var(--text-main);
+      border-radius: var(--radius-pill);
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+      transition: all 0.2s ease;
+    }
+    .btn-refresh:active { transform: scale(0.96); }
+    .btn-refresh.spinning .refresh-icon {
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin {
+      100% { transform: rotate(360deg); }
+    }
+
+    /* 선박 검색창 & 빠른 칩 */
+    .search-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .search-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-line);
+      border-radius: var(--radius-pill);
+      padding: 6px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    }
+    .search-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 13.5px;
+      outline: none;
+      font-family: inherit;
+    }
+    .search-box input::placeholder { color: var(--text-mute); }
+    .btn-search-go {
+      background: var(--accent-cyan);
+      border: none;
+      color: #0b0e14;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 4px 12px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+    }
+
+    .fleet-chips {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .fleet-chips::-webkit-scrollbar { display: none; }
+    .chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border-line);
+      border-radius: var(--radius-pill);
+      padding: 5px 8px 5px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-sub);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+    .chip.active {
+      background: rgba(6, 182, 212, 0.18);
+      border-color: var(--accent-cyan);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
+    }
+    .chip-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .chip-delete-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      color: var(--text-mute);
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      font-size: 12px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .chip-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.4);
+      color: #fff;
+    }
+    .chip.active .chip-delete-btn {
+      background: rgba(255, 255, 255, 0.25);
+      color: #fff;
+    }
+
+    /* ============================================================ */
+    /* 갤럭시 Z Fold8 최적화: 커버 화면(접었을 때) & 메인 화면(펼쳤을 때) */
+    /* ============================================================ */
+    .dashboard-split-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      width: 100%;
+    }
+
+    /* 커버화면 전용 뷰 전환 탭바 */
+    .cover-tab-switcher {
+      display: none;
+    }
+
+    /* 1. 커버화면 (Fold8 접힘: 좁고 긴 세로화면 가로폭 < 680px) */
+    @media (max-width: 679px) {
+      .top-header {
+        padding: 8px 4px 4px 4px;
+        gap: 6px;
+      }
+      .brand-title { font-size: 15px; }
+      .search-box { padding: 5px 12px; }
+      .search-box input { font-size: 12.5px; }
+      .chip { padding: 4px 10px; font-size: 11px; }
+
+      /* 커버화면 탭 스위처 활성화 ([🗺️ 지도] vs [💬 브리핑]) */
+      .cover-tab-switcher {
+        display: flex;
+        background: #141824;
+        border: 1px solid var(--border-line);
+        border-radius: var(--radius-pill);
+        padding: 4px;
+        margin: 6px 0 10px 0;
+        gap: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      }
+      .cover-tab-btn {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--text-sub);
+        font-size: 13px;
+        font-weight: 700;
+        padding: 8px 12px;
+        border-radius: var(--radius-pill);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+      }
+      .cover-tab-btn.active {
+        background: var(--accent-cyan);
+        color: #0b0e14;
+        box-shadow: 0 2px 8px rgba(6, 182, 212, 0.4);
+      }
+
+      .dashboard-split-layout {
+        display: block;
+      }
+
+      /* 지도 탭 활성화 시 */
+      body.cover-view-map .left-map-column {
+        display: flex !important;
+      }
+      body.cover-view-map .right-briefing-column {
+        display: none !important;
+      }
+      body.cover-view-map .map-frame {
+        height: calc(100vh - 230px);
+        min-height: 440px;
+      }
+
+      /* 브리핑 탭 활성화 시: 지도를 숨기고 유리나 말풍선을 전체 화면으로 시원하게 표시! */
+      body.cover-view-briefing .left-map-column {
+        display: none !important;
+      }
+      body.cover-view-briefing .right-briefing-column {
+        display: flex !important;
+      }
+
+      .briefing-card {
+        padding: 14px;
+        border-radius: 14px;
+        gap: 12px;
+      }
+      .avatar-wrapper { width: 46px; height: 46px; }
+      .yurina-name { font-size: 15px; }
+      .bubble-box {
+        padding: 12px 14px;
+        font-size: 13.5px;
+        line-height: 1.55;
+      }
+    }
+
+    /* 2. 메인 대화면 (Fold8 펼침: 가로폭 >= 680px) */
+    @media (min-width: 680px) {
+      .cover-tab-switcher {
+        display: none !important;
+      }
+      .dashboard-split-layout {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        align-items: start;
+        gap: 14px;
+      }
+      /* 펼친 화면: 좌측에 시원한 고정 대형 지도, 우측에 말풍선 독립 스크롤 동시 표시 */
+      .left-map-column {
+        display: flex !important;
+        position: sticky;
+        top: 112px;
+        align-self: start;
+        z-index: 10;
+        min-width: 0;
+      }
+      .right-briefing-column {
+        display: flex !important;
+        min-width: 0;
+      }
+      .map-frame {
+        height: calc(100vh - 180px);
+        min-height: 440px;
+        max-height: 640px;
+      }
+    }
+
+    /* ------------------------------------------------------------ */
+    /* [좌측] 동적 실시간 항적 지도 프레임 */
+    /* ------------------------------------------------------------ */
+    .left-map-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .map-frame {
+      position: relative;
+      width: 100%;
+      height: 480px;
+      background: #0d121c;
+      border: 1px solid var(--border-line);
+      border-radius: var(--radius-card);
+      overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #0d121c;
+    }
+
+    /* 지도 상단 오버레이 정보창 */
+    .map-tag-overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      z-index: 800;
+      background: rgba(11, 14, 20, 0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-line);
+      border-radius: var(--radius-pill);
+      padding: 5px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+
+    /* 마커 스타일 */
+    .vessel-marker-pin {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      transform: translate(-50%, -100%);
+    }
+    .vessel-marker-halo {
+      position: relative;
+      width: 32px;
+      height: 32px;
+      background: rgba(6, 182, 212, 0.25);
+      border: 2px solid var(--accent-cyan);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      box-shadow: 0 0 16px rgba(6, 182, 212, 0.6);
+      animation: vesselPulse 2.2s infinite;
+    }
+    @keyframes vesselPulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 10px rgba(6, 182, 212, 0.4); }
+      50% { transform: scale(1.15); box-shadow: 0 0 22px rgba(6, 182, 212, 0.8); }
+      100% { transform: scale(0.95); box-shadow: 0 0 10px rgba(6, 182, 212, 0.4); }
+    }
+    .vessel-marker-label {
+      background: rgba(11, 14, 20, 0.95);
+      border: 1px solid var(--accent-cyan);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+      margin-top: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .port-marker-origin {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1.5px solid var(--accent-cyan);
+      color: #a5f3fc;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    }
+    .port-marker-dest {
+      background: rgba(17, 24, 39, 0.96);
+      border: 2px solid #ef4444;
+      color: #ffffff;
+      font-size: 11.5px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+      box-shadow: 0 3px 12px rgba(239, 68, 68, 0.5), 0 2px 6px rgba(0,0,0,0.6);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .port-marker-dest .dest-name {
+      color: #f87171;
+      font-weight: 800;
+    }
+    .port-marker-dest .dest-badge {
+      background: #dc2626;
+      color: #ffffff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      margin-left: 2px;
+    }
+
+    /* 지도 하단 간결 버튼 바 */
+    .map-action-bar {
+      display: flex;
+      gap: 8px;
+    }
+    .map-btn {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border-line);
+      border-radius: var(--radius-pill);
+      padding: 9px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      transition: background 0.2s ease;
+    }
+    .map-btn:hover { background: rgba(30, 38, 56, 0.95); }
+
+    /* ------------------------------------------------------------ */
+    /* [우측] 유리나 얼굴 & 5단계 순서별 말풍선 브리핑 */
+    /* ------------------------------------------------------------ */
+    .right-briefing-column {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .briefing-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-line);
+      border-radius: var(--radius-card);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    /* 유리나 프로필 헤더 */
+    .yurina-profile-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border-line);
+    }
+    .avatar-wrapper {
+      position: relative;
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+    }
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: block;
+      box-shadow: 0 4px 16px rgba(192, 132, 252, 0.4);
+      animation: floatBreath 3.5s ease-in-out infinite;
+    }
+    @keyframes floatBreath {
+      0% { transform: translateY(0px) scale(1); }
+      50% { transform: translateY(-3px) scale(1.02); }
+      100% { transform: translateY(0px) scale(1); }
+    }
+    .yurina-meta {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .yurina-name-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: nowrap;
+    }
+    .yurina-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      white-space: nowrap;
+    }
+    .yurina-role-badge {
+      background: rgba(192, 132, 252, 0.15);
+      border: 1px solid rgba(192, 132, 252, 0.35);
+      color: var(--accent-lilac);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      white-space: nowrap;
+    }
+    .yurina-status-text {
+      font-size: 12px;
+      color: var(--text-sub);
+    }
+
+    /* 자기 피클로 담당자 교체 버튼 */
+    .btn-handover-pickle {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(99, 102, 241, 0.28));
+      border: 1px solid rgba(168, 85, 247, 0.55);
+      color: #f3e8ff;
+      border-radius: var(--radius-pill);
+      padding: 5px 11px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .btn-handover-pickle:hover {
+      background: linear-gradient(135deg, rgba(168, 85, 247, 0.5), rgba(99, 102, 241, 0.5));
+      border-color: #c084fc;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .consonant-avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      animation: floatBreath 3.5s ease-in-out infinite;
+    }
+
+    /* 모달 팝업 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal-card {
+      background: #141824;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+      border-radius: 20px;
+      width: 100%;
+      max-width: 420px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.85), 0 0 30px rgba(168, 85, 247, 0.2);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-line);
+      padding-bottom: 12px;
+    }
+    .modal-close-btn {
+      background: none;
+      border: none;
+      color: var(--text-sub);
+      font-size: 24px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+    .modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+    .pickle-preview-box {
+      background: rgba(20, 24, 36, 0.9);
+      border: 1px solid var(--border-line);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .preview-consonant {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 900;
+      color: #fff;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+    }
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .modal-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--text-sub);
+    }
+    .modal-input {
+      background: #0b0e14;
+      border: 1px solid var(--border-line);
+      border-radius: 8px;
+      padding: 9px 12px;
+      color: #fff;
+      font-size: 13px;
+      outline: none;
+    }
+    .modal-input:focus {
+      border-color: var(--accent-lilac);
+    }
+    .consonant-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 6px;
+    }
+    .consonant-btn {
+      background: #0b0e14;
+      border: 1px solid var(--border-line);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      padding: 6px 0;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.15s;
+    }
+    .consonant-btn.active {
+      background: var(--accent-lilac);
+      border-color: #fff;
+      color: #111;
+      transform: scale(1.05);
+    }
+    .color-grid {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .color-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .color-btn.active {
+      border-color: #fff;
+      transform: scale(1.2);
+      box-shadow: 0 0 10px rgba(255,255,255,0.6);
+    }
+    .modal-footer {
+      display: flex;
+      gap: 8px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-line);
+    }
+    .btn-share-link {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: var(--accent-cyan);
+      border-radius: var(--radius-pill);
+      padding: 8px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-reset-pickle {
+      background: transparent;
+      border: 1px solid var(--border-line);
+      color: var(--text-sub);
+      border-radius: var(--radius-pill);
+      padding: 8px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-save-pickle {
+      flex: 1;
+      background: linear-gradient(135deg, #a855f7, #6366f1);
+      border: none;
+      color: #fff;
+      border-radius: var(--radius-pill);
+      padding: 8px 14px;
+      font-size: 12.5px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(168, 85, 247, 0.4);
+    }
+
+    /* 관제 종료 버튼 */
+    .btn-close-vessel {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #fca5a5;
+      border-radius: var(--radius-pill);
+      padding: 6px 12px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .btn-close-vessel:hover {
+      background: rgba(239, 68, 68, 0.25);
+      color: #fff;
+    }
+
+    /* 브리핑 말풍선 스트림 */
+    .chat-bubble-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .bubble-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .bubble-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 6px;
+    }
+    .bubble-tag {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--accent-cyan);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .bubble-time-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-mute);
+    }
+    .bubble-box {
+      background: var(--bubble-bg);
+      border: 1px solid var(--bubble-border);
+      border-radius: 14px;
+      border-top-left-radius: 4px;
+      padding: 12px 14px;
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--text-main);
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0.4; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .bubble-box b {
+      color: #fff;
+      font-weight: 700;
+    }
+    .highlight-cyan { color: var(--accent-cyan); font-weight: 700; }
+    .highlight-amber { color: var(--accent-amber); font-weight: 700; }
+    .highlight-blue { color: var(--accent-blue); font-weight: 700; }
+
+    /* 빈 화면 안내 */
+    .empty-state-box {
+      text-align: center;
+      padding: 40px 16px;
+      color: var(--text-sub);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-restore-fleet {
+      background: var(--bg-card);
+      border: 1px solid var(--border-line);
+      color: var(--accent-cyan);
+      border-radius: var(--radius-pill);
+      padding: 6px 14px;
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+  </style>
+  <style>
+    /* ============================================================
+       피클 페이블 추가 스타일 (피클 원본 스타일은 위 블록 그대로 유지)
+       ============================================================ */
+    .header-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .brand { min-width: 0; }
+    .brand-title, .live-chip, .btn-refresh { white-space: nowrap; }
+    .lbl-short { display: none; }
+    @media (max-width: 679px) {
+      .brand-title { font-size: 14.5px; }
+      .live-chip { font-size: 9.5px; padding: 2px 6px; }
+      .btn-refresh { padding: 5px 10px; }
+      .btn-refresh .lbl, .lbl-long { display: none; }
+      .lbl-short { display: inline; }
+      .map-btn { padding: 8px 8px; font-size: 11.5px; }
+    }
+    .btn-refresh[disabled] { opacity: .55; pointer-events: none; }
+    .live-chip.direct { background: rgba(6,182,212,.15); border-color: rgba(6,182,212,.4); color: var(--accent-cyan); }
+    .live-chip.direct .live-dot { background: var(--accent-cyan); }
+    .live-chip.preview { background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.4); color: var(--accent-amber); }
+    .live-chip.preview .live-dot { background: var(--accent-amber); }
+
+    /* 선박 칩: 신선도 점 */
+    .chip-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; background: #475569; vertical-align: 1px; }
+    .chip-dot.fresh, .chip-dot.ok { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+    .chip-dot.aging { background: var(--accent-amber); }
+    .chip-dot.stale { background: var(--accent-red); }
+    .chip.busy { animation: chipBusy 1s ease-in-out infinite; }
+    @keyframes chipBusy { 50% { border-color: var(--accent-cyan); box-shadow: 0 0 12px rgba(6,182,212,.5); } }
+
+    /* 검색 결과 목록 (Wingo 탱커 검색) */
+    .search-results { display: none; flex-direction: column; gap: 6px; background: var(--bg-card); border: 1px solid var(--border-line); border-radius: 14px; padding: 8px; }
+    .search-results.active { display: flex; }
+    .search-results button { text-align: left; background: var(--bg-card-sub); border: 1px solid var(--border-line); border-radius: 10px; padding: 8px 12px; color: var(--text-main); font-size: 13px; font-weight: 700; cursor: pointer; }
+    .search-results button small { display: block; font-size: 11px; font-weight: 500; color: var(--text-sub); margin-top: 2px; }
+    .search-results .sr-note { font-size: 12px; color: var(--text-sub); padding: 4px 6px; }
+
+    /* 지도 하단 버튼 4개 (2×2) */
+    .map-action-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .map-btn { cursor: pointer; font-family: inherit; }
+
+    /* 항차 진행 띠 (지도 위) */
+    .voyage-strip { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 800; background: rgba(11,14,20,.92); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      border: 1px solid var(--border-line); border-radius: 14px; padding: 9px 12px 10px; font-size: 11.5px; box-shadow: 0 4px 12px rgba(0,0,0,.4); }
+    .voyage-strip:empty { display: none; }
+    .vs-ends { display: flex; justify-content: space-between; gap: 8px; color: var(--text-sub); }
+    .vs-ends b { color: #fff; display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .vs-ends div:last-child { text-align: right; }
+    .vs-ends div { min-width: 0; }
+    .vs-bar { position: relative; height: 5px; margin: 10px 6px 7px; border-radius: 5px; background: rgba(255,255,255,.1); }
+    .vs-bar .done { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: linear-gradient(90deg, #0e7490, var(--accent-cyan)); transition: width .8s; }
+    .vs-bar .ship { position: absolute; top: 50%; transform: translate(-50%, -50%); font-size: 15px; transition: left .8s; filter: drop-shadow(0 0 6px rgba(6,182,212,.9)); }
+    .vs-bar .end-d { position: absolute; right: -4px; top: 50%; width: 9px; height: 9px; margin-top: -4.5px; border-radius: 50%; background: var(--bg-page); border: 2px solid var(--accent-red); }
+    .vs-meta { display: flex; justify-content: space-between; color: var(--text-sub); }
+    .vs-meta b { color: #fff; }
+
+    /* 지도 표식 보강 */
+    .vessel-marker-halo.est { border-color: var(--accent-amber); background: rgba(245,158,11,.22); box-shadow: 0 0 16px rgba(245,158,11,.6); animation-name: vesselPulseEst; }
+    @keyframes vesselPulseEst { 0%,100% { transform: scale(.95); } 50% { transform: scale(1.15); box-shadow: 0 0 22px rgba(245,158,11,.8); } }
+    .vessel-marker-label .est-tag { color: var(--accent-amber); margin-left: 4px; font-size: 10px; }
+    .fix-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent-cyan); border: 2px solid #fff; box-shadow: 0 0 0 3px rgba(6,182,212,.3); }
+    .fix-label { white-space: nowrap; font-size: 10.5px; font-weight: 800; color: #cffafe; text-shadow: 0 1px 3px #000, 0 0 6px #000; display: inline-block; transform: translate(9px, -6px); }
+    .other-dot { width: 13px; height: 13px; border-radius: 50%; background: rgba(241,245,249,.85); border: 2px solid var(--bg-page); box-shadow: 0 0 0 2px rgba(241,245,249,.3); }
+    .other-label { white-space: nowrap; font-size: 10.5px; font-weight: 800; color: #f1f5f9; text-shadow: 0 1px 3px #000, 0 0 6px #000; display: inline-block; transform: translate(11px, -7px); }
+    .route-future { stroke-dasharray: 7 8; animation: routeFlow 1.2s linear infinite; }
+    @keyframes routeFlow { to { stroke-dashoffset: -30; } }
+    .leaflet-control-attribution { background: rgba(11,14,20,.6) !important; color: #64748b !important; font-size: 9px !important; }
+    .leaflet-control-attribution a { color: #94a3b8 !important; }
+
+    /* 말풍선 안 보조 상자·꼬리표 */
+    .note-box { margin-top: 6px; padding: 6px 9px; border-radius: 4px; font-size: 11.5px; line-height: 1.5; }
+    .note-cyan { background: rgba(6,182,212,.12); border-left: 3px solid var(--accent-cyan); color: #a5f3fc; }
+    .note-amber { background: rgba(245,158,11,.12); border-left: 3px solid var(--accent-amber); color: #fcd34d; }
+    .note-red { background: rgba(239,68,68,.12); border-left: 3px solid var(--accent-red); color: #fca5a5; }
+    .note-lilac { background: rgba(192,132,252,.12); border-left: 3px solid var(--accent-lilac); color: #e9d5ff; }
+    .small-note { font-size: 11px; opacity: .85; display: block; margin-top: 4px; }
+    .tg { display: inline-block; font-size: 10px; font-weight: 800; padding: 0 6px; border-radius: 5px; vertical-align: 1px; margin-right: 3px; }
+    .tg-real { background: rgba(6,182,212,.18); color: var(--accent-cyan); }
+    .tg-est { background: rgba(245,158,11,.18); color: var(--accent-amber); }
+    .tg-none { background: rgba(100,116,139,.25); color: var(--text-sub); }
+    .tg-ext { background: rgba(192,132,252,.18); color: var(--accent-lilac); }
+    .step-list { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; font-size: 12.5px; }
+    .step-list span::before { content: "○ "; color: var(--text-mute); }
+    .step-list span.run::before { content: "◌ "; color: var(--accent-cyan); }
+    .step-list span.ok::before { content: "✓ "; color: var(--accent-green); }
+    .step-list span.fail::before { content: "✕ "; color: var(--accent-red); }
+    .bubble-box.running { border-style: dashed; }
+
+    /* 선박 정보 모달 */
+    .modal-input, .modal-select { width: 100%; background: #0b0e14; border: 1px solid var(--border-line); border-radius: 8px; padding: 9px 11px; color: #fff; font-size: 13px; font-family: inherit; }
+    .modal-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .modal-row > * { flex: 1; min-width: 0; }
+    .cargo-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+    .cargo-btn { background: #0b0e14; border: 1px solid var(--border-line); color: var(--text-main); border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+    .cargo-btn.active { background: rgba(6,182,212,.2); border-color: var(--accent-cyan); color: var(--accent-cyan); }
+    .modal-hint { font-size: 11.5px; color: var(--text-sub); line-height: 1.5; }
+    .modal-list { display: flex; flex-direction: column; gap: 5px; }
+    .modal-list .row { background: #0b0e14; border: 1px solid var(--border-line); border-radius: 8px; padding: 7px 10px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    .modal-list .row div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    .modal-list .row small { display: block; color: var(--text-sub); font-size: 10.5px; }
+    .modal-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+    .mbtn { flex: 1; background: var(--bg-card-sub); border: 1px solid var(--border-line); color: #fff; border-radius: 999px; padding: 8px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .mbtn.primary { background: var(--accent-cyan); border-color: var(--accent-cyan); color: #04121e; }
+    .mbtn.danger { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35); color: #fca5a5; }
+    .mbtn.tiny { flex: none; padding: 4px 10px; font-size: 11px; }
+    .modal-card { border-color: rgba(6,182,212,.35); box-shadow: 0 20px 50px rgba(0,0,0,.85), 0 0 30px rgba(6,182,212,.18); }
+
+    /* 알림 띠 */
+    .toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); z-index: 10000; max-width: 92vw; padding: 9px 16px; border-radius: 12px;
+      background: #0f2a36; border: 1px solid rgba(6,182,212,.45); color: #e0f2fe; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; text-align: center; }
+    .toast.on { opacity: 1; transform: translate(-50%, 0); }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+
+  <div id="app">
+
+    <!-- 상단 헤더 & 검색 바 (피클 원본 구성) -->
+    <header class="top-header">
+      <div class="header-row">
+        <div class="brand">
+          <img src="icons/icon-192.png" alt="VESSEL TRACK" class="brand-logo-img" />
+          <div class="brand-title">
+            피클마린트래킹
+            <span class="live-chip direct" id="modeChip"><span class="live-dot"></span>직접 조회</span>
+          </div>
+        </div>
+        <div class="header-actions">
+          <button class="btn-refresh" id="btnRefreshAll" title="추적 중인 모든 선박을 차례로 직접 조회">
+            <span class="refresh-icon">🔁</span><span class="lbl"> 전체</span>
+          </button>
+          <button class="btn-refresh" id="btnRefresh" title="선택한 선박을 지금 직접 조회">
+            <span class="refresh-icon">🔄</span><span class="lbl-long"> 최신 갱신</span><span class="lbl-short"> 갱신</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 선박 검색창 & 빠른 칩 -->
+      <div class="search-row">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" id="shipSearchInput" placeholder="탱커 선박명·IMO·MMSI 검색 (예: GOLDEN HANA)" enterkeyhint="search" />
+          <button class="btn-search-go" id="btnSearchGo">조회</button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+        <div class="fleet-chips" id="fleetChipsContainer">
+          <!-- 동적 칩 목록 -->
+        </div>
+      </div>
+    </header>
+
+    <!-- 커버화면 전용 뷰 전환 탭바 ([🗺️ 지도 관제] vs [💬 유리나 브리핑]) -->
+    <div class="cover-tab-switcher" id="coverTabSwitcher">
+      <button class="cover-tab-btn active" id="tabBtnMap" data-tab="map">
+        <span>🗺️</span> 지도 관제
+      </button>
+      <button class="cover-tab-btn" id="tabBtnBriefing" data-tab="briefing">
+        <span>💬</span> <span id="tabAgentName">유리나</span> 브리핑
+      </button>
+    </div>
+
+    <!-- 좌우 2단 분할 레이아웃 (갤럭시 Z Fold) -->
+    <main class="dashboard-split-layout">
+
+      <!-- [좌측] 위성 지도 & 버튼 -->
+      <div class="left-map-column">
+        <div class="map-frame" id="mapFrame">
+          <div id="map"></div>
+          <div class="map-tag-overlay" id="mapTagOverlay">📐 실시간 항적도</div>
+          <div class="voyage-strip" id="voyageStrip"></div>
+        </div>
+        <div class="map-action-bar">
+          <button class="map-btn" id="btnStyle"><span>🛰️</span> <span id="styleLabel">위성 지도</span></button>
+          <button class="map-btn" id="btnReplay"><span>▶️</span> 항적 재생</button>
+          <button class="map-btn" id="btnWingo"><span>🌐</span> Wingo 원문</button>
+          <button class="map-btn" id="btnInfo"><span>✏️</span> 선박 정보</button>
+        </div>
+      </div>
+
+      <!-- [우측] 유리나 얼굴 & 단계별 말풍선 브리핑 -->
+      <div class="right-briefing-column">
+        <div class="briefing-card">
+
+          <div class="yurina-profile-row">
+            <div class="avatar-wrapper" id="pickleAvatarWrapper">
+              <img src="icons/yurina-avatar.png" alt="유리나 비서" class="avatar-img" id="pickleAvatarImg" />
+            </div>
+            <div class="yurina-meta" id="pickleMeta">
+              <div class="yurina-name-box">
+                <span class="yurina-name" id="pickleAgentName">유리나</span>
+                <span class="yurina-role-badge" id="pickleUserBadge">진수 님의 AI 비서</span>
+              </div>
+              <span class="yurina-status-text" id="yurinaStatus">해상 관제 브리핑 준비 중 ✨</span>
+            </div>
+            <button class="btn-close-vessel" id="btnCloseVessel" title="도착 완료 또는 목록에서 삭제">
+              🗑️ 관제 종료
+            </button>
+          </div>
+
+          <!-- 브리핑 순서: 1 위치 → 2 속도/침로 → 3 화물/흘수 → 4 ETA → 5 접안/관제 → (6 여수 도착) → 조회 결과 -->
+          <div class="chat-bubble-stream" id="chatBubbleStream"></div>
+
+        </div>
+      </div>
+
+    </main>
+
+  </div>
+
+  <!-- 선박 정보 모달 (피클 모달 스타일 사용) -->
+  <div class="modal-overlay" id="infoModal">
+    <div class="modal-card" id="infoCard"></div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <!-- 스크립트: 지도 → 페이블 엔진(직접 조회·항로·계산) → 피클 화면 연결 순서 -->
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="js/util.js"></script>
+  <script src="js/data/ports.js"></script>
+  <script src="js/data/land.js"></script>
+  <script src="js/data/seagraph.js"></script>
+  <script src="js/data/demo.js"></script>
+  <script src="js/route.js"></script>
+  <script src="js/parsers.js"></script>
+  <script src="js/bridge.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/brief.js"></script>
+  <script src="js/pickle-ui.js"></script>
+</body>
+</html>
