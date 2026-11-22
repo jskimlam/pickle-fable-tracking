@@ -158,6 +158,28 @@
     return { tl: [side, top], br: [side, Math.round(Math.min(sh, h * 0.45))] };
   }
 
+  // 배와 목적지가 이름표까지 다 보이도록 하는 여백 (이름표·표시·진행 띠에 가리지 않게 pads() 보다 넉넉하게)
+  function viewPads() {
+    var w = map.getContainer().offsetWidth, h = map.getContainer().offsetHeight;
+    var p = pads();
+    var side = Math.round(Math.min(110, w * 0.14));
+    var top = Math.round(Math.min(170, Math.max(p.tl[1] + 50, h * 0.27)));      // 위: 표시 + 목적지 이름표
+    var bottom = Math.round(Math.min(p.br[1] + 40, h * 0.55));                  // 아래: 진행 띠 + 배 이름표
+    var right = Math.round(Math.min(270, w * 0.38));                             // 오른쪽: 목적지 이름표(ETA 포함)가 점에서 오른쪽으로 길게 뻗는다
+    return { tl: [side, top], br: [right, bottom] };
+  }
+
+  // 갱신 뒤 화면: 배(현재 위치)와 목적지, 남은 항로가 한 화면에 모두 보이게 맞춘다. 목적지를 모르면 배 중심.
+  function viewBoth(vw, seq) {
+    if (seq != null && seq !== camSeq) return;
+    var pts = [[vw.cur.lat, vw.cur.lon]];
+    if (vw.dest) pts.push([vw.dest.lat, vw.dest.lon]);
+    if (vw.dest && vw.future && vw.future.length > 1) pts = pts.concat(vw.future);
+    if (pts.length < 2) { centerOn([vw.cur.lat, vw.cur.lon], Math.min(10, Math.max(Math.round(map.getZoom()), 8)), pads()); return; }
+    var vp = viewPads();
+    map.flyToBounds(L.latLngBounds(pts), { paddingTopLeft: vp.tl, paddingBottomRight: vp.br, maxZoom: 9, duration: 0.9 });
+  }
+
   // 여백을 고려해 '보이는 영역의 가운데'에 target 이 오도록 이동
   function centerOn(target, z, p) {
     var pt = map.project(target, z).add([(p.br[0] - p.tl[0]) / 2, (p.br[1] - p.tl[1]) / 2]);
@@ -182,6 +204,7 @@
       if (lastBounds.length) map.flyToBounds(L.latLngBounds(lastBounds), { paddingTopLeft: p.tl, paddingBottomRight: p.br, maxZoom: 9, duration: 0.9 });
       return;
     }
+    if (mode === 'view') { viewBoth(vw, seq); return; }
     var target = [vw.cur.lat, vw.cur.lon];
     var z = Math.min(10, Math.max(Math.round(map.getZoom()), 8)); // 배 주변이 보이는 확대 (8~10, 더 확대해 둔 상태는 존중)
     if (mode === 'follow' && from && shipMarker) {
@@ -191,7 +214,7 @@
       whenSettled(seq, function () {
         animateAlong([from, target], 1600, function () {
           if (shipMarker) shipMarker.setLatLng(target);
-          if (seq === camSeq) centerOn(target, z, p);
+          viewBoth(vw, seq);                          // 배 중심으로 확대하지 않고 배와 목적지를 함께 보여 준다
         });
       });
       return;
@@ -277,7 +300,7 @@
     }
     lastBounds = bounds;
     // opts: fit → 전체 항로, follow → 이동 보여 주고 배 중심, center → 배 중심
-    var mode = (opts.follow || opts.animate) ? 'follow' : opts.fit ? 'route' : opts.center ? 'ship' : null;
+    var mode = (opts.follow || opts.animate) ? 'follow' : opts.fit ? 'route' : opts.center ? 'view' : null;
     if (mode) camera(vw, mode, mode === 'follow' ? moved : null);
     else if (pending && pending.vw.v.id === vw.v.id) pending.vw = vw;
   }
